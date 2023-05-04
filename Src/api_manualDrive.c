@@ -14,6 +14,7 @@ _Bool Preparations_ManualDrive(){
 
 	//TODO: R2D, BrakePress, minimum voltage from inverters, and CAN is fine
 
+	// this should be simplify to just return, but i see u have debug part..
 	if(!TimeOutReached() &&
 		GetVarDriver(1) &&			//TODO: check R2D VALUE
 		GetVarDriver(6) > REQUIREMENT_MIN_BRAKE_PRESSURE &&
