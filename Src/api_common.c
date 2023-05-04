@@ -30,7 +30,7 @@ void SetPackage(uint8_t ArgNum, ...){
 }
 
 _Bool ShortCircuitIdentifier(uint16_t Gas_Value, uint16_t Brake_Pressure){
-	return (ABS_DIFF(Gas_Value,0xFF10) <= 1 || ABS_DIFF(Brake_Pressure, 0xFF10)) // simplifir
+	return (ABS_DIFF(Gas_Value,0xFF10) <= 1 || ABS_DIFF(Brake_Pressure, 0xFF10)) // simplify
 }
 
 // would remove comments and split function to smaller chunks
