@@ -10,12 +10,12 @@
 char buffer[200];
 
 /* External variables ----------------------------------------------------------*/
-struct DriverStruct DriverDB 				= {0,0,0,0,0,0,0};
+struct FlagStruct FlagDB					= {0,0,0,0,0,0};
+struct DriverStruct DriverDB 				= {0,0,0,0};
 struct Inverter Inverter1DB 				= {1,0,0,0,0,0,0,0,0,0};
 struct Inverter Inverter2DB 				= {2,0,0,0,0,0,0,0,0,0};
 struct DataMaxUpdateTime TimeOutPeriod  	= {0,0,0,0,0,0,0,0};
 const struct DataMaxUpdateTime MaxDelay 	= {20,50,20,20,20,20,20,20};
-uint8_t State								=  0 ;
 uint8_t ReceivedData[8] 					= {0};
 uint8_t TransmittedData[8]					= {0};
 
@@ -31,8 +31,11 @@ void StoreToInverterDB(struct Inverter inverter, uint8_t NewData[8]){
 			// TODO: add timeout and max delay for "Disable"? wasn't used in old code.
 		case REG_DC_BUS:
 			inverter.DC_Bus_Voltage			= ((uint16_t)NewData[2] << 8) + NewData[1];
-			if (inverter.Name == 1)			{TimeOutPeriod.DC_Bus_Inv1 = 0;}
-			else 							{TimeOutPeriod.DC_Bus_Inv2 = 0;}
+			if (inverter.Name == 1){
+				TimeOutPeriod.DC_Bus_Inv1 = 0;
+			}else{
+				TimeOutPeriod.DC_Bus_Inv2 = 0;
+			}
 			return;
 		case REG_RPM:
 			inverter.Motor_RPM				= ((uint16_t)NewData[2] << 8) + NewData[1];
@@ -44,13 +47,19 @@ void StoreToInverterDB(struct Inverter inverter, uint8_t NewData[8]){
 			return;
 		case REG_CURRENT:
 			inverter.Current				= ((uint16_t)NewData[2] << 8) + NewData[1];
-			if (inverter.Name == 1)			{TimeOutPeriod.Current_Inv1 = 0;}
-			else 							{TimeOutPeriod.Current_Inv2 = 0;}
+			if (inverter.Name == 1){
+				TimeOutPeriod.Current_Inv1 = 0;
+			}else{
+				TimeOutPeriod.Current_Inv2 = 0;
+			}
 			return;
 		case REG_VOUT:
 			inverter.Vout					= ((uint16_t)NewData[2] << 8) + NewData[1];
-			if (inverter.Name == 1)			{TimeOutPeriod.Vout_Inv1 = 0;}
-			else 							{TimeOutPeriod.Vout_Inv2 = 0;}
+			if (inverter.Name == 1){
+				TimeOutPeriod.Vout_Inv1 = 0;
+			}else{
+				TimeOutPeriod.Vout_Inv2 = 0;
+			}
 			return;
 		case REG_TEMP_INVERTER:
 			inverter.Inverter_Temp			= ((uint16_t)NewData[2] << 8) + NewData[1];
@@ -68,7 +77,8 @@ void StoreCANData(uint32_t RxID, uint8_t NewData[8]){
 			TimeOutPeriod.Pedal 			= 0;
 			DriverDB.Pedal_Gas_Value   		= (((uint16_t) NewData[0] << 8) | NewData[1]);
 			DriverDB.Pedal_Brake_Value 		= (((uint16_t) NewData[2] << 8) | NewData[3]);
-			DriverDB.Pedal_Brake_Pressure	= (((uint16_t) NewData[4] << 8) | NewData[5]);
+			DriverDB.SteeringWheel_Angle	= (((uint16_t) NewData[4] << 8) | NewData[5]);
+			DriverDB.Pedal_Brake_Pressure	= (((uint16_t) NewData[8] << 8) | NewData[7]);
 			break;
 		case ID_INV1_RX:
 			StoreToInverterDB(Inverter1DB, NewData);
@@ -78,7 +88,7 @@ void StoreCANData(uint32_t RxID, uint8_t NewData[8]){
 			break;
 		case ID_DASHBOARD:
 			TimeOutPeriod.Dashboard			= 0;
-			DriverDB.R2D_Value				= ReceivedData[0];
+			FlagDB.R2D_Value				= ReceivedData[0];
 			//DriverDB.R2D_Value				= ReceivedData[1]; // Used for UART DEBUG
 			break;
 		case ID_IMU:
@@ -93,66 +103,92 @@ void StoreCANData(uint32_t RxID, uint8_t NewData[8]){
 	return;
 }
 
-void SetFlag(uint8_t FlagValue, uint8_t NameOfFlag){
+uint8_t GetFlag(enumDriver NameOfFlag){
 	switch(NameOfFlag){
-		case Flag_Pedal_Gas:
-			DriverDB.Pedal_Gas_Calibrated = FlagValue;
+		case Pedal_Gas_Calibrated:
+			return FlagDB.Pedal_Gas_Calibrated;
+		case R2D_Value:
+			return FlagDB.R2D_Value;
+		case HIT_Value:
+			return FlagDB.HIT_Value;
+		case State:
+			return FlagDB.State;
+		case Zero_Torque:
+			return FlagDB.Zero_Torque;
+		default:
+			return 0;
+	}
+}
+
+void SetFlag(uint8_t FlagValue, enumDriver NameOfFlag){
+	switch(NameOfFlag){
+		case Pedal_Gas_Calibrated:
+			FlagDB.Pedal_Gas_Calibrated   = FlagValue;
 			break;
-		case Flag_R2D:
-			DriverDB.R2D_Value 			  = FlagValue;
+		case R2D_Value:
+			FlagDB.R2D_Value 			  = FlagValue;
 			break;
-		case Flag_HIT:
-			DriverDB.HIT_Value			  = FlagValue;
+		case HIT_Value:
+			FlagDB.HIT_Value			  = FlagValue;
 			break;
-		case Flag_State:
-			State = TWO;
+		case State:
+			FlagDB.State				  = FlagValue;
+		case Zero_Torque:
+			FlagDB.Zero_Torque			  = FlagValue;
+			break;
+		case SDC_State:
+			FlagDB.SDC_State			  = FlagValue;
+			break;
+		default:
 			break;
 	}
 }
 
-uint16_t GetVarDriver(uint8_t NumOfVar){
+uint16_t GetVarDriver(enumDriver NumOfVar){
 	switch (NumOfVar){
-		case 1:
-			return (uint16_t)DriverDB.R2D_Value;
-		case 2:
-			return (uint16_t)DriverDB.HIT_Value;
-		case 3:
-			return DriverDB.Pedal_Gas_Calibrated;
-		case 4:
+		case R2D_Value:
+			return (uint16_t)FlagDB.R2D_Value;
+		case HIT_Value:
+			return (uint16_t)FlagDB.HIT_Value;
+		case Pedal_Gas_Calibrated:
+			return FlagDB.Pedal_Gas_Calibrated;
+		case Pedal_Gas_Value:
 			return DriverDB.Pedal_Gas_Value;
-		case 5:
+		case Pedal_Brake_Value:
 			return DriverDB.Pedal_Brake_Value;
-		case 6:
+		case Pedal_Brake_Pressure:
 			return DriverDB.Pedal_Brake_Pressure;
-		case 7:
+		case SteeringWheel_Angle:
 			return DriverDB.SteeringWheel_Angle;
-		case 8:
-			return State;
+		case State:
+			return FlagDB.State;
+		default:
+			break;
 	}
 	return 0xFFFF;
 }
 
 
 
-uint16_t PullVarFromInverterDB(struct Inverter inverter, uint8_t NumOfVar){
+uint16_t PullVarFromInverterDB(struct Inverter inverter, enumInverter NumOfVar){
 	switch (NumOfVar){
-		case 1:
+		case Torque_Received:
 			return inverter.Torque_Received;
-		case 2:
+		case DC_Bus_Voltage:
 			return inverter.DC_Bus_Voltage;
-		case 3:
+		case Motor_RPM:
 			return inverter.Motor_RPM;
-		case 4:
+		case Motor_En_Status:
 			return inverter.Motor_En_Status;
-		case 5:
+		case Motor_Temp:
 			return inverter.Motor_Temp;
-		case 6:
+		case Current:
 			return inverter.Current;
-		case 7:
+		case Inverter_Vout:
 			return inverter.Vout;
-		case 8:
+		case Inverter_Temp:
 			return inverter.Inverter_Temp;
-		case 9:
+		case Torque_Sent:
 			return inverter.Torque_Sent;
 	}
 	return 0xFFFF;

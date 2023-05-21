@@ -9,15 +9,15 @@
 #define INC_API_COMMON_H_
 
 #include "platform.h"
+#include "debug_options.h"
 #include "api_manualDrive.h"
+#include "api_autonomous.h"
 
 /* publicly available functions */
 void StartUpChecks();
 void SetPackage(uint8_t ArgNum, ...);
-
-/* Known values and constants */
-#define REQUIREMENT_MIN_Vout		   350
-#define REQUIREMENT_MIN_BRAKE_PRESSURE 300
+void PreparationsToDrive();
+void Drive();
 
 /* Macros */
 #define ASMS_SWITCH_ON HAL_GPIO_ReadPin(GPIOB, ASMS_STATE_Pin)

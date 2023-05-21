@@ -8,23 +8,53 @@
 #ifndef INC_DATABASE_H_
 #define INC_DATABASE_H_
 
-/* If Platform.h isn't defined, do so */
-#include <platform.h>
+#include "platform.h"
 
+/* enums */
 
-void StoreCANData(uint32_t RxID, uint8_t NewData[8]);
-void SetFlag(uint8_t FlagValue, uint8_t NameOfFlag);
-uint16_t GetVarDriver(uint8_t NumOfVar);
-uint16_t GetVarInverter(uint8_t NumOfInverter, uint8_t NumOfVar);
-uint8_t GetLastTorqueSent();
+typedef enum{
+	R2D_Value,
+	HIT_Value,
+	Pedal_Gas_Calibrated,
+	Pedal_Gas_Value,
+	Pedal_Brake_Value,
+	Pedal_Brake_Pressure,
+	SteeringWheel_Angle,
+	State,
+	Zero_Torque,
+	SDC_State,
+}enumDriver;
 
+typedef enum{
+	GOOD,
+	BAD,
+}enumState;
 
+typedef enum {
+	Torque_Received,
+	DC_Bus_Voltage,
+	Motor_RPM,
+	Motor_En_Status,
+	Motor_Temp,
+	Current,
+	Inverter_Vout,
+	Inverter_Temp,
+	Torque_Sent
+}enumInverter;
 
-/* Private Structures ---------------------------------------------------------*/
-struct DriverStruct {
+/* Private Structures */
+
+struct FlagStruct {
 	uint8_t  R2D_Value;
 	uint8_t  HIT_Value;
-	uint16_t Pedal_Gas_Calibrated;
+	uint8_t  Zero_Torque;
+	uint8_t  SDC_State;
+	uint8_t  State;
+	uint8_t  Pedal_Gas_Calibrated;
+};
+
+struct DriverStruct {
+
 	uint16_t Pedal_Gas_Value;
 	uint16_t Pedal_Brake_Value;
 	uint16_t Pedal_Brake_Pressure;
@@ -58,6 +88,17 @@ struct DataMaxUpdateTime {
 struct CanData {
 	uint8_t Data[8];
 };
+
+/*Functions */
+
+void 	 StoreCANData(uint32_t RxID, uint8_t NewData[8]);
+void 	 SetFlag(uint8_t FlagValue, enumDriver NameOfFlag);
+uint16_t GetVarDriver(uint8_t NumOfVar);
+uint16_t GetVarInverter(uint8_t NumOfInverter, uint8_t NumOfVar);
+uint8_t  GetLastTorqueSent();
+uint8_t  GetFlag(enumDriver NameOfFlag);
+
+
 extern struct DataMaxUpdateTime TimeOutPeriod;
 extern const struct DataMaxUpdateTime MaxDelay;
 
@@ -65,11 +106,6 @@ extern uint8_t ReceivedData[8];
 extern uint8_t TransmittedData[8];
 
 #define SizeOfTimeOutPeriod sizeof(TimeOutPeriod)/sizeof(uint8_t)
-
-#define Flag_Pedal_Gas  0x01
-#define Flag_R2D	    0x02
-#define Flag_HIT  	    0x03
-#define Flag_State		0x04
 
 
 #endif /* INC_DATABASE_H_ */

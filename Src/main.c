@@ -102,41 +102,9 @@ int main(void)
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 StateOne:
-  StartUpChecks();
-  /* If Car AutoPilot is turned on (ASMS Switch enabled) */
-  //TODO change timing of asms check
-while(1){
-	GoToSleep();
-	//COMMONTASKS();
 
-}
-//
-//  if(HAL_GPIO_ReadPin(GPIOB, ASMS_STATE_Pin)){
-//	  while(1){
-//	  //COMMONTASKS();
-//	}
-//  }
-//  /* If the car is manhandled (ASMS Switch disabled) */
-//  else{
-//	  while(1){
-//		  //COMMONTASKS();
-//		  switch (State){
-//		  	  case TWO:
-//					//Preperations_Common();
-//					//Preperations_ManHandled();
-//
-//					//Ready to drive
-//					//SafetyBuzzer();
-//		  		  break;
-//
-//		  	  case THREE:
-//					//R2D_Common();
-//					//R2D_ManHandled();
-//					//COMMONTASKS();
-//		  		  break;
-//		  }
-//	  }
-//  }
+  goto StateOne;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -146,6 +114,14 @@ while(1){
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  /*
+	   * Practically - chronologically the code should never
+	   * go past Drive(), since it contains while(1) inside.
+	   *
+	   * */
+	  StartUpChecks();
+	  PreparationsToDrive();
+	  Drive();
   }
   /* USER CODE END 3 */
 }
@@ -487,9 +463,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 // Callback for every Time 6 interrupt
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	if (htim->Instance == TIM7){
-		State_Two_LEDS_BLINK;
-	}else{
+	if(htim->Instance == TIM7){
+		KeepAliveMsgMotors();
+	}
+	else{
 		HAL_ResumeTick();
 	}
 }

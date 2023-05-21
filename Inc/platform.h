@@ -13,17 +13,39 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <math.h>
 #include "database.h"
 #include "main.h"
+#include "debug_options.h"
+#include "SafetyChecks.h"
 
 #define LED_ERROR_GPIO_Port GPIOC
 #define LED_ERROR_Pin GPIO_PIN_0
 
+/* enums */
+typedef enum{
+	State_One,
+	State_Two,
+	State_Three,
+	All_LEDS,
+}enumLEDs;
 
-void CAN_RX(CAN_HandleTypeDef *hcan);
-void CAN_TX(CAN_HandleTypeDef *hcan, uint8_t DLC, uint32_t Dest_ID);
-void CAN_Filter_Init();
-void SetInverterTorque(double DesiredTorque);
+typedef enum{
+	off,
+	on
+}enumSwitch;
+
+typedef enum{
+	Communication_Error_Pedal,
+	Communication_Error_Inverter1,
+	Communication_Error_Inverter2,
+	Communication_Error_Dashboard,
+	SD_Circuit_Open_Error,
+	Short_Circuit_GND_VCC_Error,
+	Implausability_Value_Error,
+	Pedal_Gas_Calibration_Error,
+}enumError;
+
 
 extern _Bool ENABLE_UART_DEBUG;
 
@@ -59,6 +81,7 @@ extern _Bool ENABLE_UART_DEBUG;
 /* REG (Registers) locations for inverters */
 #define REG_TORQUE 			   0x090
 #define REG_DISABLE			   0x051
+#define REG_REQUEST_INFO	   0x03D
 #define REG_DC_BUS 			   0x0eb
 #define REG_RPM 			   0x030
 #define REG_TEMP_MOTOR		   0x049
@@ -66,46 +89,38 @@ extern _Bool ENABLE_UART_DEBUG;
 #define REG_VOUT			   0x08a
 #define REG_CURRENT			   0x05f
 #define REG_TORQUE_SENT 	   0x001
+#define REG_TIMEOUT			   0x0D0
 
 #define ERROR_LED_ON 		HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, SET)
 #define ERROR_LED_OFF 		HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, RESET)
 
 /* Functions */
-
-void  DisableMotors();
-void  GetDataFromMotors(uint8_t dest_reg, uint8_t time_interval);
+void Announce_State_TX();
 _Bool TimeOutReached();
-_Bool Request_Motors_Routine(uint8_t status_request);
+void CAN_RX(CAN_HandleTypeDef *hcan);
+void CAN_TX(CAN_HandleTypeDef *hcan, uint8_t DLC, uint32_t Dest_ID);
+void CAN_Filter_Init();
+uint8_t Get_LED(enumLEDs LED_Num);
+void Set_LED(enumSwitch LED1_Switch,enumSwitch LED2_Switch,enumSwitch LED3_Switch, enumSwitch LED_ERROR_Switch);
+void ToggleLED(enumLEDs LED_Num);
+void SendToInverters(uint8_t DLC);
 
 /* MACROS */
 
+#define ASMS_STATE 			HAL_GPIO_ReadPin(GPIOB, ASMS_STATE_Pin)
+#define BRAKE_LIGHTS(X)		HAL_GPIO_WritePin(BRAKE_LIGHT_GPIO_Port, BRAKE_LIGHT_Pin, X)
+
 #define GoToSleep() do { \
-		HAL_SuspendTick(); \
-		__WFI(); \
+		  HAL_SuspendTick(); \
+		  HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI); \
+		  HAL_ResumeTick(); \
 }while(0)
 
-#define SendToInverters() do { \
-		CAN_TX(MAIN_CAN, 3, ID_INV1_TX); \
-		CAN_TX(MAIN_CAN, 3, ID_INV2_TX); \
+#define COMMONTASKS() do { \
+		GoToSleep(); \
+		RDDE(); \
+		BreakLights(); \
 }while(0)
-
-#define State_One_LEDS do { \
-		HAL_GPIO_WritePin(LED_STAGE_2_GPIO_Port, LED_STAGE_2_Pin, RESET); \
-		HAL_GPIO_WritePin(LED_STAGE_3_GPIO_Port, LED_STAGE_3_Pin, RESET); \
-		HAL_GPIO_WritePin(LED_STAGE_1_GPIO_Port, LED_STAGE_1_Pin, SET);	  \
-}while(0);
-
-#define State_Two_LEDS do { \
-		HAL_GPIO_WritePin(LED_STAGE_2_GPIO_Port, LED_STAGE_2_Pin, SET); \
-		HAL_GPIO_WritePin(LED_STAGE_3_GPIO_Port, LED_STAGE_3_Pin, RESET); \
-		HAL_GPIO_WritePin(LED_STAGE_1_GPIO_Port, LED_STAGE_1_Pin, RESET);  \
-}while(0);
-
-#define State_Two_LEDS_BLINK do { \
-		HAL_GPIO_TogglePin(LED_STAGE_2_GPIO_Port, LED_STAGE_2_Pin); \
-		HAL_GPIO_WritePin(LED_STAGE_3_GPIO_Port, LED_STAGE_3_Pin, RESET); \
-		HAL_GPIO_WritePin(LED_STAGE_1_GPIO_Port, LED_STAGE_1_Pin, RESET);  \
-}while(0);
 
 #define TryRaiseError(try, errCode) do { \
 		if (try == 0xFFFF){ \
@@ -120,6 +135,8 @@ _Bool Request_Motors_Routine(uint8_t status_request);
 #define ABS_DIFF(X,Y)					(X > Y) ? (X-Y) : (Y-X)
 
 /* */
+#define SDC_RELAY(X)					HAL_GPIO_WritePin(SD_RELAY_GPIO_Port, SD_RELAY_Pin, X)
+
 #define CLOSE_SD_RELAY 					HAL_GPIO_WritePin(SD_RELAY_GPIO_Port, SD_RELAY_Pin, SET)
 #define  OPEN_SD_RELAY 					HAL_GPIO_WritePin(SD_RELAY_GPIO_Port, SD_RELAY_Pin, RESET)
 #endif /* INC_PLATFORM_H_ */
